@@ -12,19 +12,27 @@ import (
 )
 
 var (
-	queue        = make(chan string, 10)
+	queueSize    = 10
+	queue        = make(chan string, queueSize)
 	opsProcessed = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "promedemo_processed_ops_total",
 		Help: "The total number of processed events"},
 		[]string{"code", "method"})
-	opsQueued = prometheus.NewGauge(prometheus.GaugeOpts{
+	opsQueued = promauto.NewGauge(prometheus.GaugeOpts{
 		Namespace: "promedemo",
 		Subsystem: "processed",
 		Name:      "ops_queued",
 		Help:      "Number of blob storage operations waiting to be processed.",
 	})
 
-	opsDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+	opsQueueSize = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: "promedemo",
+		Subsystem: "processed",
+		Name:      "ops_queue_size",
+		Help:      "The max number of blob storage operations waiting to be processed.",
+	})
+
+	opsDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: "promedemo",
 		Subsystem: "processed",
 		Name:      "ops_duration",
@@ -47,10 +55,7 @@ const (
 )
 
 func init() {
-	//prometheus.MustRegister(opsProcessed)
-	prometheus.MustRegister(opsQueued)
-	opsQueued.Set(0)
-	prometheus.Register(opsDuration)
+	opsQueueSize.Set(float64(queueSize))
 }
 
 func produce() {
@@ -106,7 +111,10 @@ func consume() {
 func recordMetrics() {
 	produce()
 	consume()
+	timeConsume()
+}
 
+func timeConsume() {
 	go func() {
 		for {
 			code := getStatusCode()
@@ -174,6 +182,7 @@ func getMethod() string {
 func main() {
 	recordMetrics()
 	http.Handle("/metrics", promhttp.Handler())
+	fmt.Println("service started, listen on:2112")
 	err := http.ListenAndServe(":2112", nil)
 	if err != nil {
 		fmt.Printf("start error: %v", err)
