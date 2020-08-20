@@ -36,6 +36,7 @@ var (
 		Namespace: "promedemo",
 		Subsystem: "processed",
 		Name:      "ops_duration",
+		Buckets:   []float64{5, 10, 25, 50, 100, 250, 500, 1000, 5000},
 		Help:      "The duration of processed events.",
 	}, []string{"code", "method"})
 )
@@ -122,7 +123,7 @@ func timeConsume() {
 			duration := getDuration()
 			opsProcessed.WithLabelValues(code, method).Inc()
 			time.Sleep(time.Duration(duration) * time.Millisecond)
-			opsDuration.WithLabelValues(code, method).Observe(float64(duration / 1000.0))
+			opsDuration.WithLabelValues(code, method).Observe(float64(duration))
 		}
 	}()
 }
